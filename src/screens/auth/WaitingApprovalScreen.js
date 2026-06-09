@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { subscribeToJoinRequest } from '../../services/firebase/customer';
 import { JOIN_REQUEST_STATUS } from '../../constants/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import { COLORS } from '../../constants';
 import { authStyles } from './authStyles';
 
@@ -16,6 +17,7 @@ import { authStyles } from './authStyles';
  */
 export default function WaitingApprovalScreen({ navigation, route }) {
   const { requestId, provider } = route.params ?? {};
+  const { refreshProfile } = useAuth();
 
   const [status, setStatus] = useState('pending');
   const [listenerError, setListenerError] = useState(false);
@@ -36,16 +38,19 @@ export default function WaitingApprovalScreen({ navigation, route }) {
       setListenerError(false);
 
       if (request.status === JOIN_REQUEST_STATUS.APPROVED) {
-        navigation.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'CustomerDashboard',
-              params: {
-                providerName: provider?.businessName,
+        // Refresh context so AppNavigator knows we are now a customer
+        refreshProfile().then(() => {
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'CustomerDashboard',
+                params: {
+                  providerName: provider?.businessName,
+                },
               },
-            },
-          ],
+            ],
+          });
         });
       }
     });

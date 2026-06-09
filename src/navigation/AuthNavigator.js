@@ -1,5 +1,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import { useAuth } from '../contexts/AuthContext';
+
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
 import PhoneInputScreen from '../screens/auth/PhoneInputScreen';
@@ -7,8 +9,9 @@ import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
 import ProviderRegistrationScreen from '../screens/auth/ProviderRegistrationScreen';
 import JoinCodeScreen from '../screens/auth/JoinCodeScreen';
 import WaitingApprovalScreen from '../screens/auth/WaitingApprovalScreen';
-import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
-import CustomerDashboardScreen from '../screens/customer/CustomerDashboardScreen';
+import AdminTabNavigator    from './AdminTabNavigator';
+import CustomerTabNavigator from './CustomerTabNavigator';
+
 import { COLORS } from '../constants';
 
 const Stack = createStackNavigator();
@@ -19,9 +22,49 @@ const screenOptions = {
   headerTitleStyle: { fontWeight: 'bold' },
 };
 
+/**
+ * Determines the initial route based on the current auth + profile state.
+ * Called once when the navigator mounts. Navigation.reset() handles
+ * subsequent transitions (e.g. after OTP verify, after registration).
+ *
+ * @param {{ user: import('firebase/auth').User | null, userRole: string | null, providerData: object | null, customerData: object | null }} auth
+ * @returns {string}
+ */
+function resolveInitialRoute({ user, userRole, providerData, customerData }) {
+  if (!user) {
+    return 'Welcome';
+  }
+
+  if (userRole === 'provider' && providerData) {
+    return 'AdminDashboard';
+  }
+
+  if (userRole === 'customer' && customerData) {
+    return 'CustomerDashboard';
+  }
+
+  // Authenticated but profile not created yet.
+  // We can't know the intended role here so fall back to Welcome
+  // — the user will tap "I'm a Provider / Customer" again and proceed.
+  return 'Welcome';
+}
+
 export default function AuthNavigator() {
+  const { user, userRole, providerData, customerData } = useAuth();
+
+  const initialRouteName = resolveInitialRoute({
+    user,
+    userRole,
+    providerData,
+    customerData,
+  });
+
   return (
-    <Stack.Navigator initialRouteName="Welcome" screenOptions={screenOptions}>
+    <Stack.Navigator
+      initialRouteName={initialRouteName}
+      screenOptions={screenOptions}
+    >
+      {/* ── Unauthenticated flow ── */}
       <Stack.Screen
         name="Welcome"
         component={WelcomeScreen}
@@ -42,6 +85,8 @@ export default function AuthNavigator() {
         component={OTPVerificationScreen}
         options={{ title: 'Verify OTP' }}
       />
+
+      {/* ── Post-auth registration ── */}
       <Stack.Screen
         name="ProviderRegistration"
         component={ProviderRegistrationScreen}
@@ -57,15 +102,17 @@ export default function AuthNavigator() {
         component={WaitingApprovalScreen}
         options={{ title: 'Pending Approval', headerLeft: null, gestureEnabled: false }}
       />
+
+      {/* ── Authenticated destinations ── */}
       <Stack.Screen
         name="AdminDashboard"
-        component={AdminDashboardScreen}
-        options={{ title: 'Dashboard', headerLeft: null, gestureEnabled: false }}
+        component={AdminTabNavigator}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="CustomerDashboard"
-        component={CustomerDashboardScreen}
-        options={{ title: 'My Milk', headerLeft: null, gestureEnabled: false }}
+        component={CustomerTabNavigator}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

@@ -357,3 +357,71 @@ export function subscribeToJoinRequest(requestId, callback) {
     }
   );
 }
+
+/**
+ * Creates a customer profile directly (admin adds them manually — no join request).
+ *
+ * @param {string} providerId
+ * @param {{ name: string, phoneNumber: string, address?: string, dailyQuantity?: number, ratePerLitre?: number, startDate?: string }} customerData
+ * @returns {Promise<{ id: string }>}
+ */
+export async function createCustomerDirectly(providerId, customerData) {
+  if (!providerId) {
+    throw new CustomerServiceError('Provider ID is required.', 'customer/missing-provider');
+  }
+
+  if (!customerData.name?.trim()) {
+    throw new CustomerServiceError('Customer name is required.', 'customer/missing-name');
+  }
+
+  if (!customerData.phoneNumber?.trim()) {
+    throw new CustomerServiceError('Phone number is required.', 'customer/missing-phone');
+  }
+
+  const newDoc = {
+    [FIELDS.PROVIDER_ID]: providerId,
+    [FIELDS.NAME]: customerData.name.trim(),
+    [FIELDS.PHONE_NUMBER]: customerData.phoneNumber.trim(),
+    [FIELDS.ADDRESS]: customerData.address?.trim() || '',
+    [FIELDS.DAILY_QUANTITY]: customerData.dailyQuantity ?? 1,
+    [FIELDS.RATE_PER_LITRE]: customerData.ratePerLitre ?? 60,
+    [FIELDS.START_DATE]: customerData.startDate || new Date().toISOString().split('T')[0],
+    [FIELDS.ROLE]: USER_ROLES.CUSTOMER,
+    [FIELDS.SUBSCRIPTION_STATUS]: SUBSCRIPTION_STATUS.ACTIVE,
+    [FIELDS.CREATED_AT]: serverTimestamp(),
+    [FIELDS.UPDATED_AT]: serverTimestamp(),
+  };
+
+  try {
+    const ref = await addDoc(collection(firestore, COLLECTIONS.CUSTOMERS), newDoc);
+    return { id: ref.id };
+  } catch (error) {
+    console.error('Failed to create customer directly:', error);
+    throw new CustomerServiceError(
+      'Failed to add customer. Please try again.',
+      'customer/create-failed'
+    );
+  }
+}
+
+/**
+ * Returns all pending join requests for a provider.
+ *
+ * @param {string} providerId
+ * @returns {Promise<Array<{ id: string, data: Record<string, unknown> }>>}
+ */
+export async function getPendingJoinRequests(providerId) {
+  if (!providerId) {
+    throw new CustomerServiceError('Provider ID is required.', 'customer/missing-provider');
+  }
+
+  const q = query(
+    collection(firestore, COLLECTIONS.JOIN_REQUESTS),
+    where(FIELDS.PROVIDER_ID, '==', providerId),
+    where(FIELDS.STATUS, '==', JOIN_REQUEST_STATUS.PENDING)
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((d) => ({ id: d.id, data: d.data() }));
+}

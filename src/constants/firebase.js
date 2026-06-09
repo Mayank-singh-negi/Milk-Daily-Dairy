@@ -41,6 +41,7 @@ export const FIELDS = {
   // Customer-specific
   SUBSCRIPTION_STATUS: 'subscriptionStatus',
   DAILY_QUANTITY: 'dailyQuantity',
+  RATE_PER_LITRE: 'ratePerLitre',
   START_DATE: 'startDate',
 
   // Join request-specific

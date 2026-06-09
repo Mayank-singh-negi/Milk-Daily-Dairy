@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { getCurrentUser } from '../../services/firebase/auth';
 import { createProvider, ProviderServiceError } from '../../services/firebase/provider';
+import { useAuth } from '../../contexts/AuthContext';
 import { authStyles } from './authStyles';
 
 const DEFAULT_MILK_RATE = '60';
@@ -56,6 +57,7 @@ function validateForm(fields) {
  */
 export default function ProviderRegistrationScreen({ navigation, route }) {
   const { phoneNumber, uid: routeUid } = route.params ?? {};
+  const { refreshProfile } = useAuth();
 
   const [businessName, setBusinessName] = useState('');
   const [ownerName, setOwnerName] = useState('');
@@ -105,6 +107,9 @@ export default function ProviderRegistrationScreen({ navigation, route }) {
         address,
         pricePerLiter: parseFloat(pricePerLiter),
       });
+
+      // Refresh context so AppNavigator knows we are now a provider
+      await refreshProfile();
 
       Alert.alert(
         'Registration Successful',
